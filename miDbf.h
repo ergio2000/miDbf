@@ -79,7 +79,7 @@ int main(void){
 */
 
 
-union sHelperUnion{
+union sHelperUnionDbf{
     
     __int8 mi_int8;
     __int16 mi_int16;
@@ -99,7 +99,7 @@ union sHelperUnion{
     unsigned char mi_arr16[16];
 
 
-} sUnion;
+} sUnionDbf;
 
 
 //estructura descriptor de campo / field descriptor
@@ -202,7 +202,7 @@ int miDbfLeer(miDbfHandleStruct *pDbfHandler, char *pRuta, char *pArchivo){
     
     FILE *fRep01;
     char na[200]="";
-    sHelperUnion su;
+    sHelperUnionDbf su;
     int aux;
     int xOffset;
     unsigned char c;
@@ -610,7 +610,7 @@ int miDbfCrear(miDbfHandleStruct *pDbfHandler, char *pRuta, char *pArchivo, vect
     tm *ltm = localtime(&ttime);
 
     unsigned char buff32[32+1];
-    sHelperUnion su;
+    sHelperUnionDbf su;
     int xOffset;
     int t;
 
@@ -747,56 +747,60 @@ int miDbfAdicionarRecords(miDbfHandleStruct *pDbfHandler, vector<miDbfRegistroSt
     int tam1Reg;
     miDbfSubRecordStructure *sr;
     miDbfRegistroStruct *reg;
-    sHelperUnion su;
+    sHelperUnionDbf su;
     
-    numReg=pDbfHandler->pDbfHeader->numRecords;//numero de registros existentes
-    numReg+=pRegs.size();//aumenta nuevos registros
-    pDbfHandler->pDbfHeader->numRecords=numReg;//actualiza registros totales
+    //procesa si existen registros
+    if(pRegs.size()>0){
+        numReg=pDbfHandler->pDbfHeader->numRecords;//numero de registros existentes
+        numReg+=pRegs.size();//aumenta nuevos registros
+        pDbfHandler->pDbfHeader->numRecords=numReg;//actualiza registros totales
 
-    tam1Reg=pDbfHandler->pDbfHeader->len1Reg;//incluye 1er caracter borrado
-    //reserva memoria
-    buff=(unsigned char *)malloc(tam1Reg+1);
+        tam1Reg=pDbfHandler->pDbfHeader->len1Reg;//incluye 1er caracter borrado
+        //reserva memoria
+        buff=(unsigned char *)malloc(tam1Reg+1);
 
-    //escribe registros
-    //posiciona al final del archivo
-    fseek(pDbfHandler->pFile,0, SEEK_END);
-    //para cada registro, copia y escribe valores
-    n=pRegs.size();//aumenta nuevos registros
-    for(i=0;i<n;i++){
-        //registro
-        reg=pRegs.at(i);
-        //campos
-        m=pDbfHandler->subRecords.size();
-        //inicializa buffer
-        memset(buff,0,tam1Reg+1);
-        //copia caracter borrado
-        xOffset=0;
-        buff[xOffset]=0x20;//espacio o asterisco
-        xOffset++;
-        //copia valores de campos
-        for(j=0;j<m;j++){
-            sr=pDbfHandler->subRecords.at(j);
-            buffRegCampo=reg->buffs.at(j);
-            tam=sr->fieldLen;
-            memccpy(buff + xOffset,buffRegCampo,1,tam);
-            xOffset+=tam;
+        //escribe registros
+        //posiciona al final del archivo
+        fseek(pDbfHandler->pFile,0, SEEK_END);
+        //para cada registro, copia y escribe valores
+        n=pRegs.size();//aumenta nuevos registros
+        for(i=0;i<n;i++){
+            //registro
+            reg=pRegs.at(i);
+            //campos
+            m=pDbfHandler->subRecords.size();
+            //inicializa buffer
+            memset(buff,0,tam1Reg+1);
+            //copia caracter borrado
+            xOffset=0;
+            buff[xOffset]=0x20;//espacio o asterisco
+            xOffset++;
+            //copia valores de campos
+            for(j=0;j<m;j++){
+                sr=pDbfHandler->subRecords.at(j);
+                buffRegCampo=reg->buffs.at(j);
+                tam=sr->fieldLen;
+                memccpy(buff + xOffset,buffRegCampo,1,tam);
+                xOffset+=tam;
+            }
+            //escribe
+            fwrite(buff,1,tam1Reg,pDbfHandler->pFile);        
         }
-        //escribe
-        fwrite(buff,1,tam1Reg,pDbfHandler->pFile);        
+
+
+        //actualiza numero de registros
+        memset(su.mi_arr16,0,16);
+        su.mi_int32=pDbfHandler->pDbfHeader->numRecords;
+        t=2;
+        xOffset=4;
+        fseek(pDbfHandler->pFile,xOffset,0);
+        fwrite(su.mi_arr4,1,t,pDbfHandler->pFile);
+
+
+        //libera memoria
+        free(buff);
     }
 
-
-    //actualiza numero de registros
-    memset(su.mi_arr16,0,16);
-    su.mi_int32=pDbfHandler->pDbfHeader->numRecords;
-    t=2;
-    xOffset=4;
-    fseek(pDbfHandler->pFile,xOffset,0);
-    fwrite(su.mi_arr4,1,t,pDbfHandler->pFile);
-
-
-    //libera memoria
-    free(buff);
     
     return 0;
 }
